@@ -9,6 +9,9 @@ const schemaregister = mongoose.Schema({
     type: String,
     require: true,
   },
+  token: {
+    type: String,
+  },
 });
 
 const user = mongoose.model("user", schemaregister);

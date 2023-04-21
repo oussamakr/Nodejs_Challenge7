@@ -7,6 +7,9 @@ const bcrypt = require("bcryptjs");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const morgan = require("morgan");
+const passport = require("passport");
+const bearerStrategy = require("./passport-strategies/bearer");
+
 require("dotenv").config();
 
 app.use(cors());
@@ -35,7 +38,7 @@ app.post("/register", async (req, res) => {
   }
 });
 
-app.get("/login", async (req, res) => {
+app.post("/login", async (req, res) => {
   const user_existe = await user.findOne({ email: req.body.email });
   if (!user_existe) {
     res.status(400).json({ message: " email n'existe pas " });
@@ -46,15 +49,36 @@ app.get("/login", async (req, res) => {
     user_existe.password
   );
   if (!compare_hash_password) {
-    res.status(400).json({ message: "password ou email non correct" });
+    res.status(400).json({ message: "password incorrect" });
   }
   const sercet = process.env.SECRET;
-  const generate_token = jwt.sign({ id: user_existe.id }, sercet, {
+  const token = jwt.sign({ id: user_existe.id }, sercet, {
     expiresIn: 86400,
   });
+  user
+    .findOneAndUpdate(
+      { email: req.body.email }, // identifiant de l'utilisateur concerné
+      { token: token }, // mettre à jour le champ token avec la nouvelle valeur
+      { new: true } // pour renvoyer le document mis à jour plutôt que l'ancien document
+    )
+    .then((user) => {
+      console.log("Token saved to database for user:", user);
+    })
+    .catch((err) => {
+      console.error("Error saving token to database:", err);
+    });
 
-  res.status(200).json({ generate_token });
+  res.status(200).json({ token });
 });
+
+app.get(
+  "/api/secured",
+  passport.authenticate("bearer", { session: false }),
+  function (req, res) {
+    res.json({ message: "secured connexion " });
+    console.log(req.body);
+  }
+);
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
